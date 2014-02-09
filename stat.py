@@ -8,32 +8,26 @@ def compute_actual_widths(ax):
     cs = len(ax.containers)
     chperc = len(ax.containers[0].get_children())
     widths = np.zeros(cs * chperc).reshape(chperc, cs)
-    print(widths)
     for i, container in enumerate(ax.containers):
-        print('i == %d' % i)
         for j, child in enumerate(container.get_children()):
-            print('j == %d' % j)
             prev_width = 0
             if (i > 0):
                 prev_width = widths[j][i - 1]
             widths[j][i] = prev_width + child.get_width()
-
     return widths
 
 
 def barh(frame, title='', color='', xlabel='', ylabel='',
          format_str='%s', integer=True, legend_title='',
-         figsize=(8, 6), stacked=False):
+         figsize=(8, 6), stacked=False, hidevalue=5):
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
     frame.plot(kind='barh', ax=ax, title=title, color=color, stacked=stacked)
 
     # print values inside bars
-
     # stacked bar charts need some more care
     if (stacked):
         actual_widths = compute_actual_widths(ax)
-        print(actual_widths)
 
     for i, container in enumerate(ax.containers):
         for j, child in enumerate(container.get_children()):
@@ -45,7 +39,7 @@ def barh(frame, title='', color='', xlabel='', ylabel='',
                 text = str(int(value))
             else:
                 text = str(value)
-            if (width < 5):
+            if (value < hidevalue):
                 if (stacked):
                     continue
                 xloc = width + 1
@@ -119,7 +113,6 @@ def draw_impressions_chart(people):
     flexibility = people['impressions.flexibility'].value_counts()
     recoil = people['impressions.recoil'].value_counts()
     overall = people['impressions.overall'].value_counts()
-
     names = {
         0: 'проводимость',
         1: 'прилегаемость',
@@ -128,7 +121,6 @@ def draw_impressions_chart(people):
         4: 'recoil',
         5: 'общие впечатления'
     }
-
     impressions = pd.concat([conductance, conformability, delivery,
                             flexibility, recoil, overall],
                             axis=1)
@@ -137,7 +129,7 @@ def draw_impressions_chart(people):
     barh(frame=impressions[1:].transpose(),
          title=u'Впечатления', color='gryb',
          figsize=(10, 10), xlabel=u'Количество процедур стентирования',
-         stacked=True)
+         stacked=True, hidevalue=20)
 
 
 def draw_all():
@@ -145,8 +137,7 @@ def draw_all():
     mpl.rcParams['font.family'] = 'fantasy'
     mpl.rcParams['font.fantasy'] = 'Arial'
 
-    path = 'st.csv'
-
+    path = '/Users/wal/work/math/stents-stats/st.csv'
     stents = pd.read_csv(path, index_col=1, encoding='UTF-8', sep='\t')
     people = stents.groupby(level=0).first()
 
@@ -239,17 +230,19 @@ def draw_all():
     barh(frame=frame, title=u'Тип стента', color='gc',
          xlabel='Количество процедур стентирования')
 
+    draw_impressions_chart(people)
+
 
 def exp():
     mpl.rcParams['font.family'] = 'fantasy'
     mpl.rcParams['font.fantasy'] = 'Arial'
 
-    path = 'st.csv'
+    path = '/Users/wal/work/math/stents-stats/st.csv'
 
     stents = pd.read_csv(path, index_col=1, encoding='UTF-8', sep='\t')
     people = stents.groupby(level=0).first()
 
     draw_impressions_chart(people)
 
-#draw_all()
-exp()
+draw_all()
+#exp()
