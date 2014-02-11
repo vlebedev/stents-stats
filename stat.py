@@ -18,13 +18,16 @@ def compute_actual_widths(ax):
 
 
 def barh(frame, title='', color='', xlabel='', ylabel='',
-         format_str='%s', integer=True, legend_title='',
-         figsize=(8, 6), stacked=False, hidevalue=5):
+         format_str='%s', integer=True,
+         figsize=(8, 6), stacked=False, hidevalue=5,
+         legend=False, legend_title='', legend_loc=1,
+         filename='figure.png'):
 
     # plot horizontal bar chart
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111)
-    frame.plot(kind='barh', ax=ax, title=title, color=color, stacked=stacked)
+    frame.plot(kind='barh', ax=ax, title=title, color=color, stacked=stacked,
+               legend=False)
 
     # print value inside each bar
     # stacked bars need some more care
@@ -65,19 +68,27 @@ def barh(frame, title='', color='', xlabel='', ylabel='',
                  for label in yticklabels]
     ax.set_yticklabels(newlabels)
 
-    # add legend title, if defined
-    legend = ax.get_legend()
+    # add legend
     if (legend):
-        legend.set_title(legend_title)
+        patches, labels = ax.get_legend_handles_labels()
+        ax.legend(patches, labels, title=legend_title, loc=legend_loc)
 
     # save figure as a .png file
-    #plt.savefig('stat1.png', bbox_inches='tight', dpi=300)
+    plt.savefig('./out/' + filename + '.png', bbox_inches='tight', dpi=300)
+    plt.close(fig)
+
+    # save frame into a worksheet in Excel file
+    # convert Series into DataFrame, if needed
+    if (isinstance(frame, pd.Series)):
+        frame = pd.DataFrame(frame)
+
+    frame.to_excel('./out/' + filename + '.xlsx', sheet_name=filename)
 
 
 def stents_plot_basic(data, groupby,
                       dataslice=False, title='', color='m',
                       figsize=(8, 6), xlabel='', ylabel='',
-                      integer=True):
+                      integer=True, filename='figure.png'):
     frame = data.groupby(groupby).size()
     frame.sort(axis=0, ascending=False)
     if (dataslice):
@@ -85,15 +96,15 @@ def stents_plot_basic(data, groupby,
     else:
         sliced_frame = frame
     barh(frame=sliced_frame,
-         title=title, color=color,
+         title=title, color=color, legend=False,
          figsize=figsize, xlabel=xlabel, ylabel=ylabel,
-         integer=integer)
+         integer=integer, filename=filename)
 
 
 def stents_plot_stacked(data, groupby, sortby,
                         dataslice=False, title='', color='m',
                         figsize=(8, 6), xlabel='', ylabel='',
-                        integer=True):
+                        integer=True, filename='figure.png'):
     frame = data.groupby(groupby).size()
     unstacked_frame = frame.unstack()
     unstacked_frame.fillna(value=0, inplace=True)
@@ -103,9 +114,9 @@ def stents_plot_stacked(data, groupby, sortby,
     else:
         sliced_frame = sorted_frame
     barh(frame=sliced_frame,
-         title=title, color=color,
+         title=title, color=color, legend=True,
          figsize=figsize, xlabel=xlabel, ylabel=ylabel,
-         integer=integer, stacked=True)
+         integer=integer, stacked=True, filename=filename)
 
 
 def draw_impressions_chart(people):
@@ -129,119 +140,9 @@ def draw_impressions_chart(people):
     impressions.rename(columns=names, inplace=True)
     impressions.fillna(value=0, inplace=True)
     barh(frame=impressions[1:].transpose(),
-         title=u'Впечатления', color='gryb',
+         title=u'Впечатления от стентов', color='gryb', legend_loc=3,
          figsize=(10, 10), xlabel=u'Количество процедур стентирования',
-         stacked=True, hidevalue=20)
-
-
-def draw_all():
-
-    mpl.rcParams['font.family'] = 'fantasy'
-    mpl.rcParams['font.fantasy'] = 'Arial'
-
-    path = './st.csv'
-    stents = pd.read_csv(path, index_col=1, encoding='UTF-8', sep='\t')
-    people = stents.groupby(level=0).first()
-
-    # Пол
-    gender = people['patient.sex'].value_counts()
-    barh(frame=gender, title=u'Пол пациентов', color='gb',
-         xlabel='Количество пациентов')
-
-    # Средний возраст
-    mean_age = people.groupby('patient.sex').mean()['patient.age']
-    barh(frame=mean_age, title=u'Средний возраст пациентов', color='bg',
-         xlabel='Возраст')
-
-    # Диагноз
-    stents_plot_basic(data=stents,
-                      groupby='hospitalization.diagnosis',
-                      dataslice=(0, 10),
-                      title=u'Диагнозы', color='m',
-                      xlabel='Количество пациентов')
-
-    stents_plot_stacked(data=stents,
-                        groupby=['hospitalization.diagnosis', 'patient.sex'],
-                        sortby=u'муж.',
-                        dataslice=(0, 10), figsize=(14, 10),
-                        title=u'Распределение диагнозов по полам',
-                        color='bg',
-                        xlabel='Количество пациентов')
-
-    # Локализация стеноза
-    stents_plot_basic(data=stents,
-                      groupby='stents.segmentNo',
-                      title=u'Локализация стеноза',
-                      color='m',
-                      xlabel=u'Количество установленных стентов',
-                      ylabel=u'Номер сегмента')
-
-    stents_plot_stacked(data=stents,
-                        groupby=['stents.segmentNo', 'patient.sex'],
-                        sortby=u'муж.',
-                        title=u'Распределение локализации стеноза по полам',
-                        color='bg', figsize=(14, 10),
-                        xlabel='Количество установленных стентов',
-                        ylabel=u'Номер сегмента')
-
-    # Тип стеноза
-    stents_plot_basic(data=stents, groupby='stents.stenosisType',
-                      title=u'Типы стеноза', color='m',
-                      xlabel=u'Количество установленных стентов',
-                      ylabel=u'Тип стеноза')
-
-    stents_plot_stacked(data=stents,
-                        groupby=['stents.stenosisType', 'patient.sex'],
-                        sortby=u'муж.',
-                        title=u'Распределение типов стеноза по полам',
-                        color='bg',
-                        xlabel='Количество установленных стентов',
-                        ylabel=u'Тип стеноза')
-
-    stents_plot_basic(data=stents,
-                      groupby='stents.tortuosityDeg',
-                      dataslice=(0, 10),
-                      title=u'Извитость', color='m',
-                      xlabel='Количество пациентов',
-                      ylabel='Степень извитости')
-
-    stents_plot_basic(data=stents,
-                      groupby='stents.tortuosityDeg',
-                      dataslice=(0, 10),
-                      title=u'Кальциноз', color='m',
-                      xlabel='Количество пациентов',
-                      ylabel='Степень кальциноза')
-
-    frame = stents['stents.predilatation'].value_counts()
-    barh(frame=frame, title=u'Предилятация', color='gc',
-         xlabel='Количество процедур стентирования')
-
-    frame = stents['stents.postdilatation'].value_counts()
-    barh(frame=frame, title=u'Постдилятация', color='gc',
-         xlabel='Количество процедур стентирования')
-
-    frame = stents['stents.hResults.success'].value_counts()
-    barh(frame=frame, title=u'Результат процедуры', color='gr',
-         xlabel='Количество процедур стентирования')
-
-    frame = stents['stents.hResults.replaced'].value_counts()
-    barh(frame=frame, title=u'Замена стента', color='gr',
-         xlabel='Количество процедур стентирования')
-
-    frame = stents['stents.stent.type'].value_counts()
-    barh(frame=frame, title=u'Тип стента', color='gc',
-         xlabel='Количество процедур стентирования')
-
-    draw_impressions_chart(people)
-
-    corr_task8(stents)
-    print('\n')
-    corr_task13(stents)
-    print('\n')
-    corr_task14(stents)
-    print('\n')
-    corr_task15(stents)
-    print('\n')
+         stacked=True, legend=True, hidevalue=20, filename='task16')
 
 
 def corr_task8(stents):
@@ -265,7 +166,7 @@ def corr_task8(stents):
     }
     frame.rename(columns=names, inplace=True)
     corr = frame.corr()
-    print('Таблица коэффициентов корреляций к пункту 8 задания\n\n%s' % corr)
+    corr.to_excel('./out/task8.xlsx', sheet_name='task8')
 
 
 def corr_task13(stents):
@@ -297,7 +198,7 @@ def corr_task13(stents):
     corr = frame.corr()
     print('Средняя длина стента:   %.2f мм' % avg_len)
     print('Средний диаметр стента: %.2f мм\n' % avg_dia)
-    print('Таблица коэффициентов корреляций к пункту 13 задания\n\n%s' % corr)
+    corr.to_excel('./out/task13.xlsx', sheet_name='task13')
 
 
 def corr_task14(stents):
@@ -351,7 +252,7 @@ def corr_task14(stents):
     }
     frame.rename(columns=names, inplace=True)
     corr = frame.corr()
-    print('Таблица коэффициентов корреляций к пункту 14 задания\n\n%s' % corr)
+    corr.to_excel('./out/task14.xlsx', sheet_name='task14')
 
 
 def corr_task15(stents):
@@ -409,18 +310,135 @@ def corr_task15(stents):
     }
     frame.rename(columns=names, inplace=True)
     corr = frame.corr()
-    print('Таблица коэффициентов корреляций к пункту 15 задания\n\n%s' % corr)
+    corr.to_excel('./out/task15.xlsx', sheet_name='task15')
 
 
-def exp():
+def draw_all():
+
     mpl.rcParams['font.family'] = 'fantasy'
     mpl.rcParams['font.fantasy'] = 'Arial'
+    pd.options.mode.chained_assignment = None
 
-    path = './st.csv'
+    path = './in/st.csv'
+    stents = pd.read_csv(path, index_col=1, encoding='UTF-8', sep=',')
+    people = stents.groupby(level=0).first()
 
-    stents = pd.read_csv(path, index_col=1, encoding='UTF-8', sep='\t')
-    # people = stents.groupby(level=0).first()
+    # 1. Пол
+    gender = people['patient.sex'].value_counts()
+    barh(frame=gender, title=u'Пол пациентов', color='gb',
+         xlabel=u'Количество пациентов', filename='task1')
+
+    # 2. Средний возраст
+    mean_age = people.groupby('patient.sex').mean()['patient.age']
+    barh(frame=mean_age, title=u'Средний возраст пациентов', color='bg',
+         xlabel=u'Возраст', filename='task2')
+
+    # 3. Диагноз
+    stents_plot_basic(data=stents,
+                      groupby='hospitalization.diagnosis',
+                      dataslice=(0, 10),
+                      title=u'Диагноз', color='m',
+                      xlabel=u'Количество пациентов',
+                      filename='task3a')
+
+    stents_plot_stacked(data=stents,
+                        groupby=['hospitalization.diagnosis', 'patient.sex'],
+                        sortby=u'муж.',
+                        dataslice=(0, 10), figsize=(14, 10),
+                        title=u'Распределение диагнозов по полам',
+                        color='bg',
+                        xlabel=u'Количество пациентов',
+                        filename='task3b')
+
+    # 4. Локализация стеноза
+    stents_plot_basic(data=stents,
+                      groupby='stents.segmentNo',
+                      title=u'Локализация стеноза',
+                      color='m',
+                      xlabel=u'Количество установленных стентов',
+                      ylabel=u'Номер сегмента',
+                      filename='task4a')
+
+    stents_plot_stacked(data=stents,
+                        groupby=['stents.segmentNo', 'patient.sex'],
+                        sortby=u'муж.',
+                        title=u'Распределение локализации стеноза по полам',
+                        color='bg', figsize=(14, 10),
+                        xlabel='Количество установленных стентов',
+                        ylabel=u'Номер сегмента',
+                        filename='task4b')
+
+    # 5. Тип стеноза
+    stents_plot_basic(data=stents, groupby='stents.stenosisType',
+                      title=u'Типы стеноза', color='m',
+                      xlabel=u'Количество установленных стентов',
+                      ylabel=u'Тип стеноза',
+                      filename='task5a')
+    stents_plot_stacked(data=stents,
+                        groupby=['stents.stenosisType', 'patient.sex'],
+                        sortby=u'муж.',
+                        title=u'Распределение типов стеноза по полам',
+                        color='bg',
+                        xlabel='Количество установленных стентов',
+                        ylabel=u'Тип стеноза',
+                        filename='task5b')
+    # 6. Извитость
+    stents_plot_basic(data=stents,
+                      groupby='stents.tortuosityDeg',
+                      dataslice=(0, 10),
+                      title=u'Извитость', color='m',
+                      xlabel='Количество пациентов',
+                      ylabel='Степень извитости',
+                      filename='task6')
+    # 7. Кальциноз
+    stents_plot_basic(data=stents,
+                      groupby='stents.tortuosityDeg',
+                      dataslice=(0, 10),
+                      title=u'Кальциноз', color='m',
+                      xlabel='Количество пациентов',
+                      ylabel='Степень кальциноза',
+                      filename='task7')
+    # 8. Корреляция с пунктов 3,4, и 7,6
+    corr_task8(stents)
+    print('\n')
+    # 9. Количество успешных процедур
+    frame = stents['stents.hResults.success'].value_counts()
+    barh(frame=frame, title=u'Результат процедуры', color='gr',
+         xlabel='Количество процедур стентирования',
+         filename='task9')
+    # 10. Ситуации когда пришлось использовать другой стент
+    frame = stents['stents.hResults.replaced'].value_counts()
+    barh(frame=frame, title=u'Замена стента', color='gr',
+         xlabel='Количество процедур стентирования',
+         filename='task10')
+    # 11а. Предилятация
+    frame = stents['stents.predilatation'].value_counts()
+    barh(frame=frame, title=u'Предилятация', color='gc',
+         xlabel='Количество процедур стентирования',
+         filename='task11a')
+    # 11б. Постдилятация
+    frame = stents['stents.postdilatation'].value_counts()
+    barh(frame=frame, title=u'Постдилятация', color='gc',
+         xlabel='Количество процедур стентирования',
+         filename='task11b')
+    # 12. Стенты  сталь/кобальт хром/покрытые
+    frame = stents['stents.stent.type'].value_counts()
+    barh(frame=frame, title=u'Тип стента', color='gc',
+         xlabel='Количество процедур стентирования',
+         filename='task12')
+    # 13. Средняя длина стентов и диаметр – корреляция с пунктами 4,5,6,7
+    corr_task13(stents)
+    print('\n')
+    # 14. Госпитальные результаты по анкете и корреляция с предыдущими
+    # пунктами 1-7 и 9-12
+    corr_task14(stents)
+    print('\n')
+    # 15. Отдаленные результаты по пунктам в анкете ( %) и связь
+    # с остальными факторами.
+    corr_task15(stents)
+    print('\n')
+    # 16. Общие впечатления: суммарно для учреждений и общие
+    draw_impressions_chart(people)
 
 
 draw_all()
-#exp()
